@@ -34,12 +34,16 @@ test("context files become global rules, skills become agentFetched rules", asyn
       }),
     );
 
-    assert.equal(rules.length, 2);
+    assert.equal(rules.length, 3);
     assert.equal(rules[0]?.type?.type.case, "global");
-    assert.equal(rules[0]?.content, "Agent rules.");
-    assert.equal(rules[1]?.type?.type.case, "agentFetched");
-    assert.equal(rules[1]?.content, "Skill body.");
-    assert.ok(!rules[1]?.content.includes("---"));
+    assert.match(rules[0]?.content ?? "", /mcp_pi-agent_read/);
+    assert.match(rules[0]?.content ?? "", /mcp_pi-agent_edit/);
+    assert.match(rules[0]?.content ?? "", /mcp_pi-agent_write/);
+    assert.equal(rules[1]?.type?.type.case, "global");
+    assert.equal(rules[1]?.content, "Agent rules.");
+    assert.equal(rules[2]?.type?.type.case, "agentFetched");
+    assert.equal(rules[2]?.content, "Skill body.");
+    assert.ok(!rules[2]?.content.includes("---"));
   });
 });
 
@@ -56,11 +60,14 @@ test("falls back to description when skill file is unreadable", async () => {
     }),
   );
 
-  assert.equal(rules.length, 1);
-  assert.equal(rules[0]?.type?.type.case, "agentFetched");
-  assert.equal(rules[0]?.content, "Skill description fallback.");
+  assert.equal(rules.length, 2);
+  assert.equal(rules[1]?.type?.type.case, "agentFetched");
+  assert.equal(rules[1]?.content, "Skill description fallback.");
 });
 
-test("returns empty for empty context", async () => {
-  assert.deepEqual(await buildCursorRules(parsed()), []);
+test("adds Pi file-tool routing for empty context", async () => {
+  const rules = await buildCursorRules(parsed());
+  assert.equal(rules.length, 1);
+  assert.equal(rules[0]?.fullPath, "<pi-file-tool-routing>");
+  assert.match(rules[0]?.content ?? "", /Do not use Cursor native Read/);
 });

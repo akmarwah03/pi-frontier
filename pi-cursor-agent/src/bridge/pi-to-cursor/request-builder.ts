@@ -34,8 +34,6 @@ import { toolResultToText } from "../shared/tool-result";
 
 const CURSOR_NATIVE_TOOL_NAMES = new Set([
   "bash",
-  "read",
-  "write",
   "delete",
   "ls",
   "grep",

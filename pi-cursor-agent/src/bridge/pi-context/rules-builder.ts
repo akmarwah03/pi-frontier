@@ -37,6 +37,16 @@ function globalRule(path: string, content: string): CursorRule {
   });
 }
 
+const PI_FILE_TOOL_RULE = globalRule(
+  "<pi-file-tool-routing>",
+  [
+    "You are running inside Pi. For every file read, write, or edit, use the Pi MCP tools from provider pi-agent.",
+    "Use mcp_pi-agent_read to inspect files, including its offset and limit arguments for large files.",
+    "Use mcp_pi-agent_edit for exact replacements and mcp_pi-agent_write only to create or intentionally replace a whole file.",
+    "Do not use Cursor native Read, Write, or StrReplace tools; those operations are disabled by the bridge.",
+  ].join("\n"),
+);
+
 function agentFetchedRuleType(description: string): CursorRuleType {
   return new CursorRuleType({
     type: {
@@ -69,5 +79,5 @@ export async function buildCursorRules(
 ): Promise<CursorRule[]> {
   const globals = parsed.contextFiles.map((f) => globalRule(f.path, f.content));
   const skills = await Promise.all(parsed.skills.map(agentFetchedRule));
-  return [...globals, ...skills];
+  return [PI_FILE_TOOL_RULE, ...globals, ...skills];
 }

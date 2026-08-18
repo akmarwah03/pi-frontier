@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Context, Message, Model } from "@mariozechner/pi-ai";
+import { Value } from "@bufbuild/protobuf";
+import type { Context, Message, Model, Tool } from "@mariozechner/pi-ai";
 import { ConversationStateStructure } from "../../../src/__generated__/agent/v1/agent_pb.js";
-import { buildRunRequest } from "../../../src/bridge/pi-to-cursor/request-builder.js";
+import {
+  buildRunRequest,
+  getContextTools,
+} from "../../../src/bridge/pi-to-cursor/request-builder.js";
 import { createStateStore } from "../../../src/provider/state.js";
 import {
   getBlobId,
@@ -254,4 +258,77 @@ test("single trailing user message still becomes the action unchanged", () => {
   const result = buildRunRequest(params);
   assert.equal(getActionUserText(result), "hello");
   assert.equal(result.conversationState.turns.length, 0);
+});
+
+test("advertises Pi read, write, and edit as MCP tools", () => {
+  const tools = [
+    {
+      name: "read",
+      description: "Read a file with optional paging",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          offset: { type: "number" },
+          limit: { type: "number" },
+        },
+        required: ["path"],
+      },
+    },
+    {
+      name: "write",
+      description: "Write a complete file",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          content: { type: "string" },
+        },
+        required: ["path", "content"],
+      },
+    },
+    {
+      name: "edit",
+      description: "Edit a file with exact replacements",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          edits: { type: "array" },
+        },
+        required: ["path", "edits"],
+      },
+    },
+    {
+      name: "bash",
+      description: "Run a shell command",
+      parameters: { type: "object", properties: {} },
+    },
+  ] as unknown as Tool[];
+
+  const context = {
+    systemPrompt: "Use Pi tools.",
+    messages: [{ role: "user", content: "Inspect a file", timestamp: 1 }],
+    tools,
+  } as Context & { tools: Tool[] };
+
+  const definitions = getContextTools(context);
+  assert.deepEqual(
+    definitions.map((tool) => tool.name),
+    ["read", "write", "edit"],
+  );
+  assert.ok(
+    definitions.every((tool) => tool.providerIdentifier === "pi-agent"),
+  );
+
+  const read = definitions.find((tool) => tool.name === "read");
+  assert.ok(read);
+  const schema = Value.fromBinary(read.inputSchema).toJson() as {
+    properties?: Record<string, unknown>;
+  };
+  assert.deepEqual(Object.keys(schema.properties ?? {}).sort(), [
+    "limit",
+    "offset",
+    "path",
+  ]);
 });
